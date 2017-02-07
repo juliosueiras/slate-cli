@@ -1,0 +1,18 @@
+{
+  "name": "slate-cli",
+  "version": "1.0.0",
+  "main": "index.js",
+  "repository": {},
+  "author": "Julio Tain Sueiras <juliosueiras@gmail.com>",
+  "license": "MIT",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "asyncawait": "^1.0.6",
+    "envs": "^0.1.6",
+    "node-horseman": "^3.0.1",
+    "unirest": "^0.5.1",
+    "vorpal": "^1.11.4"
+  }
+}
