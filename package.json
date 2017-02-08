@@ -10,7 +10,9 @@
   },
   "dependencies": {
     "asyncawait": "^1.0.6",
+    "axios": "^0.15.3",
     "chalk": "^1.1.3",
+    "cli-table": "^0.3.1",
     "envs": "^0.1.6",
     "node-horseman": "^3.2.0",
     "unirest": "^0.5.1",
