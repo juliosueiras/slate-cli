@@ -7,8 +7,12 @@ var axios = require('axios');
 var chalk = require('chalk');
 var fs = require('fs');
 var download = require('download');
+var rc = require('vorpal-rc');
+var path = require('path')
+var os = require('os')
 axios.defaults.baseURL = 'https://slate.sheridancollege.ca/d2l/api/';
 
+var config = null;
 
 const vorpal = require('vorpal')();
 
@@ -17,6 +21,7 @@ var Table = require('cli-table');
 
 var globalCookie = null;
 var globalCourseListing = null;
+
 
 var getClassList = async(function(courseId) {
     var res = await(axios.get('/le/1.10/' + courseId + '/classlist/'))
@@ -85,61 +90,103 @@ var grabCookie = function () {
 		return horseman
 			.userAgent('Mozilla/5.0 (Windows NT 6.1; WOW64; rv:27.0) Gecko/20100101 Firefox/27.0')
 			.open("https://slate.sheridancollege.ca")
-			.type('input[name="j_username"]', process.env.SLATE_USERNAME)
-			.type('input[name="j_password"]', process.env.SLATE_PASSWORD)
+			.type('input[name="j_username"]', config.username)
+			.type('input[name="j_password"]', config.password)
 			.click('[name="_eventId_proceed"]')
 			.waitForNextPage()
 			.waitForSelector('.d2l-minibar-home-text')
 			.cookies()
 			.then(function(cookies) {
-				console.log(chalk.green('Successfully Login'))
+				vorpal.log(chalk.green('Successfully Login'))
 				globalCookie = cookies[0].name+'='+cookies[0].value+';'+cookies[1].name+'='+cookies[1].value
 
                 axios.defaults.headers.common['Cookie'] = globalCookie;
+
+
+                var data = {
+                    username: config.username,
+                    password: config.password,
+                    cookie: globalCookie
+                }
+
+                fs.writeFileSync(path.join(os.homedir(), '.slaterc'), JSON.stringify(data))
+
+                config = data;
 			})
 			.close();
+
 };
 
 async( function() { 
-    await(grabCookie())
 
-	vorpal
-		.command('login', 'login to Slate Sheridan')
-		.action(async(function(args, callback) {
-			await(grabCookie())
-			callback();
-		}));
+    vorpal.command('login', 'Login (u: root p: vorpal)')
+        .action(async(function (args, cb) {
+            var self = this;
 
-	vorpal
-		.command('courses', 'list courses as a table')
-		.action(async(function(args, callback) {
-            courses = await(courseListing());
-            var table = new Table({ head: ["Name", "Code"],
-                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
-                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
-                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
-                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
-            });
+            if(fs.existsSync(path.join(os.homedir(), '.slaterc'))) {
+                var configBuffer = fs.readFileSync(path.join(os.homedir(), '.slaterc'))
+                config = JSON.parse(configBuffer.toString())
+                await(initVorpalSlate(config.username, config.password));
+            } else {
+                var result;
+                await(this.prompt([
+                    {
+                        type: 'input',
+                        name: 'username',
+                        message: 'Username: '
+                    },
+                    {
+                        type: 'password',
+                        name: 'password',
+                        message: 'Password: '
+                    }
+                ], function (answers) {
+                     result = answers
+                }));
 
-            courses.map(function(i) {
-                var results = i.OrgUnit.Name.split(' ');
-                table.push(
-                    [results.shift(), results.join(' ')]
-                );
-            })
+                await(initVorpalSlate(result.username, result.password));
+            }
 
-            vorpal.log(table.toString());
-			callback();
-		}));
+        }));
 
-	vorpal
-		.command('course <course>', 'list course of sheridan')
+
+    vorpal
+        .delimiter('slate$')
+        .use(repl)
+        .show().parse(process.argv);
+})()
+
+var checkCookieStatus = function() {
+    return false;
+};
+
+var initVorpalSlate = async(function(username, password) {
+
+    if(config == null) {
+        var data = {
+            username: username,
+            password: password
+        }
+
+        fs.writeFileSync(path.join(os.homedir(), '.slaterc'), JSON.stringify(data))
+
+        config = data;
+    }
+
+    if(checkCookieStatus()) {
+
+    } else {
+        await(grabCookie())
+    }
+
+    vorpal
+        .command('course <course>', 'list course of sheridan')
         .option('--list-class', 'list the student of the course')
         .option('--grades', 'list grades of the course')
         .option('--dropbox', 'list dropbox/assignments')
         .option('--download <dropboxId>', 'use with dropbox files')
-		.autocomplete(await(courseCompletion()))
-		.action(async(function(args, callback) {
+        .autocomplete(await(courseCompletion()))
+        .action(async(function(args, callback) {
             if(args.options['list-class']) {
                 course = await(findCourse(args.course));
                 classlist = await(getClassList(course.OrgUnit.Id))
@@ -167,7 +214,7 @@ async( function() {
                     dropbox = await(getCourseDropbox(course.OrgUnit.Id))
 
                     var table = new Table({
-                        head: ['ID', 'Name', 'Due Date', 'Dropbox Close Date'],
+                        head: ['ID', 'Name', 'Due Date', 'Dropbox Close Date', 'Total Submitted'],
                         chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
                             , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
                             , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
@@ -176,10 +223,10 @@ async( function() {
 
                     dropbox.map(function(i) {
 
-						var dueDate = (i.DueDate != null) ? closeDate = new Date(i.DueDate) : 'None';
-						var closeDate = (i.Availability != null) ? closeDate = new Date(i.Availability.EndDate) : 'None';
+                        var dueDate = (i.DueDate != null) ? closeDate = new Date(i.DueDate) : 'None';
+                        var closeDate = (i.Availability != null) ? closeDate = new Date(i.Availability.EndDate) : 'None';
                         table.push(
-                            [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
+                            [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() , i.TotalUsersWithSubmissions]
                         );
                     })
 
@@ -222,13 +269,29 @@ async( function() {
                 );
                 vorpal.log(table.toString());
             }
-			callback();
-		}));
+            callback();
+        }));
 
-	vorpal
-		.delimiter('slate$')
-		.use(repl)
-		.show();
+    vorpal
+        .command('courses', 'list courses as a table')
+        .action(async(function(args, callback) {
+            courses = await(courseListing());
+            var table = new Table({ head: ["Name", "Code"],
+                chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                    , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                    , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                    , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+            });
 
+            courses.map(function(i) {
+                var results = i.OrgUnit.Name.split(' ');
+                table.push(
+                    [results.shift(), results.join(' ')]
+                );
+            })
 
-})()
+            vorpal.log(table.toString());
+            callback();
+        }));
+
+});
