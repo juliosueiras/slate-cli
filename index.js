@@ -6,6 +6,9 @@ var axios = require('axios');
 var envs = require('envs');
 var chalk = require('chalk');
 
+var logger = require('cli-logger');
+log = logger();
+
 const repl = require('vorpal-repl');
 var Table = require('cli-table');
 
@@ -14,6 +17,23 @@ var globalCourseListing = null;
 
 var getClassList = async(function(courseId) {
     var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/classlist/'))
+    return res.data;
+})
+
+var getContentToc = async(function(courseId) {
+    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/content/toc'))
+    log.info('my object: %o', res.data.Modules)
+})
+
+var getCourseGradeDetail = async(function(courseId, gradeId) {
+    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/grades/' + gradeId + '/values/myGradeValue').catch(function(err) {
+        return { data: { "DisplayedGrade": "None" }}
+    }))
+    return res.data;
+})
+
+var getCourseGrade = async(function(courseId) {
+    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/grades/'))
     return res.data;
 })
 
@@ -80,9 +100,7 @@ async( function() {
                     [results.shift(), results.join(' ')]
                 );
             })
-            // table.push(
-            //     { 'Name': course.OrgUnit.Name }
-            // );
+
             vorpal.log(table.toString());
 			callback();
 		}));
@@ -90,6 +108,7 @@ async( function() {
 	vorpal
 		.command('course <course>', 'list course of sheridan')
         .option('--list-class', 'list the student of the course')
+        .option('--grades', 'list grades of the course')
 		.autocomplete(await(courseCompletion()))
 		.action(async(function(args, callback) {
             if(args.options['list-class']) {
@@ -102,6 +121,26 @@ async( function() {
                 classlist.map(function(i) {
                     table.push(
                         [ i.FirstName + " " + i.LastName ]
+                    );
+                })
+                vorpal.log(table.toString());
+            } else if(args.options['grades']) {
+                course = await(findCourse(args.course));
+                grade = await(getCourseGrade(course.OrgUnit.Id))
+                var table = new Table({
+                    head: ['ID', 'Name', 'Grade'],
+                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+                });
+
+                var gradeDetail;
+
+                grade.map(function(i) {
+                    gradeDetail = await(getCourseGradeDetail(course.OrgUnit.Id, i.Id));
+                    table.push(
+                        [ i.Id , i.Name, gradeDetail.DisplayedGrade ]
                     );
                 })
                 vorpal.log(table.toString());
