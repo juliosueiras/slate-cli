@@ -11,9 +11,8 @@ var download = require('download');
 axios.defaults.baseURL = 'https://slate.sheridancollege.ca/d2l/api/';
 
 
+const vorpal = require('vorpal')();
 RxDB.plugin(require('pouchdb-adapter-node-websql'))
-var logger = require('cli-logger');
-log = logger();
 
 const repl = require('vorpal-repl');
 var Table = require('cli-table');
@@ -28,7 +27,7 @@ var getClassList = async(function(courseId) {
 
 var getContentToc = async(function(courseId) {
     var res = await(axios.get('/le/1.10/' + courseId + '/content/toc'))
-    log.info('my object: %o', res.data.Modules)
+    console.log(res)
 })
 
 var getCourseGradeDetail = async(function(courseId, gradeId) {
@@ -52,6 +51,7 @@ var downloadDropboxFiles = async(function(courseId, dropboxId) {
                 cookie: axios.defaults.headers.common['Cookie']
             }
         }).pipe(fs.createWriteStream(i.FileName)));
+        vorpal.log("Finish Download: "+ i.FileName)
     })
 })
 
@@ -103,7 +103,6 @@ var grabCookie = function () {
 };
 
 async( function() { 
-	const vorpal = require('vorpal')();
     await(grabCookie())
 
 	vorpal
