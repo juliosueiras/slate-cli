@@ -1,3 +1,4 @@
+#!/usr/bin/env node
 var async = require('asyncawait/async')
 var await = require('asyncawait/await')
 var Horseman = require('node-horseman');

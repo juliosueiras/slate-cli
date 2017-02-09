@@ -1,12 +1,14 @@
 {
   "name": "slate-cli",
   "version": "1.0.0",
-  "main": "index.js",
-  "repository": {},
+  "main": "bin/slate",
+  "repository": {
+      "https://github.com/juliosueiras/slate-cli"
+  },
   "author": "Julio Tain Sueiras <juliosueiras@gmail.com>",
   "license": "MIT",
   "scripts": {
-    "start": "node index.js"
+    "start": "node bin/slate"
   },
   "dependencies": {
     "asyncawait": "^1.0.6",
