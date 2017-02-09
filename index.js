@@ -5,7 +5,9 @@ var horseman = new Horseman();
 var axios = require('axios');
 var envs = require('envs');
 var chalk = require('chalk');
+var RxDB = require('rxdb');
 
+RxDB.plugin(require('pouchdb-adapter-node-websql'))
 var logger = require('cli-logger');
 log = logger();
 
@@ -36,6 +38,12 @@ var getCourseGrade = async(function(courseId) {
     var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/grades/'))
     return res.data;
 })
+
+var getCourseDropbox = async(function(courseId) {
+    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/dropbox/folders/'))
+    return res.data;
+})
+
 
 var courseListing = async (function () {
     if(globalCourseListing == null) {
@@ -92,7 +100,12 @@ async( function() {
 		.command('courses', 'list courses as a table')
 		.action(async(function(args, callback) {
             courses = await(courseListing());
-            var table = new Table({ head: ["Name", "Code"] });
+            var table = new Table({ head: ["Name", "Code"],
+                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+            });
 
             courses.map(function(i) {
                 var results = i.OrgUnit.Name.split(' ');
@@ -109,13 +122,19 @@ async( function() {
 		.command('course <course>', 'list course of sheridan')
         .option('--list-class', 'list the student of the course')
         .option('--grades', 'list grades of the course')
+        .option('--dropbox', 'list dropbox/assignments')
+        .option('--download <dropboxId>', 'use with dropbox files')
 		.autocomplete(await(courseCompletion()))
 		.action(async(function(args, callback) {
             if(args.options['list-class']) {
                 course = await(findCourse(args.course));
                 classlist = await(getClassList(course.OrgUnit.Id))
                 var table = new Table({
-                    head: ['Name']
+                    head: ['Name'],
+                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
                 });
 
                 classlist.map(function(i) {
@@ -124,7 +143,30 @@ async( function() {
                     );
                 })
                 vorpal.log(table.toString());
+            } else if(args.options['dropbox']) {
+                course = await(findCourse(args.course));
+                dropbox = await(getCourseDropbox(course.OrgUnit.Id))
+                var table = new Table({
+                    head: ['ID', 'Name', 'Due Date', 'Dropbox Close Date'],
+                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+                });
+
+                dropbox.map(function(i) {
+
+                    var dueDate = new Date(i.DueDate);
+                    var closeDate = new Date(i.Availability.EndDate);
+                    table.push(
+                        [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
+                    );
+                })
+
+                vorpal.log(table.toString());
+
             } else if(args.options['grades']) {
+
                 course = await(findCourse(args.course));
                 grade = await(getCourseGrade(course.OrgUnit.Id))
                 var table = new Table({
@@ -139,14 +181,21 @@ async( function() {
 
                 grade.map(function(i) {
                     gradeDetail = await(getCourseGradeDetail(course.OrgUnit.Id, i.Id));
+
                     table.push(
                         [ i.Id , i.Name, gradeDetail.DisplayedGrade ]
                     );
                 })
+
                 vorpal.log(table.toString());
             } else {
                 course = await(findCourse(args.course));
-                var table = new Table();
+                var table = new Table({
+                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+                });
                 table.push(
                     { 'Name': course.OrgUnit.Name }
                 );
