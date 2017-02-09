@@ -1,9 +1,16 @@
 {
   "name": "slate-cli",
   "version": "1.0.0",
+  "bin":{
+      "slate":"./bin/slate"
+  },
   "main": "bin/slate",
   "repository": {
-      "https://github.com/juliosueiras/slate-cli"
+      "type": "git",
+      "url": "https://github.com/juliosueiras/slate-cli"
+  },
+  "bugs": {
+      "url": "https://github.com/juliosueiras/slate-cli/issues"
   },
   "author": "Julio Tain Sueiras <juliosueiras@gmail.com>",
   "license": "MIT",
