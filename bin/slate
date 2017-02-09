@@ -19,7 +19,6 @@ const vorpal = require('vorpal')();
 const repl = require('vorpal-repl');
 var Table = require('cli-table');
 
-var globalCookie = null;
 var globalCourseListing = null;
 
 
@@ -98,15 +97,15 @@ var grabCookie = function () {
 			.cookies()
 			.then(function(cookies) {
 				vorpal.log(chalk.green('Successfully Login'))
-				globalCookie = cookies[0].name+'='+cookies[0].value+';'+cookies[1].name+'='+cookies[1].value
+				
 
-                axios.defaults.headers.common['Cookie'] = globalCookie;
+                axios.defaults.headers.common['Cookie'] = cookies[0].name+'='+cookies[0].value+';'+cookies[1].name+'='+cookies[1].value;
 
 
                 var data = {
                     username: config.username,
                     password: config.password,
-                    cookie: globalCookie
+                    cookie: axios.defaults.headers.common['Cookie']
                 }
 
                 fs.writeFileSync(path.join(os.homedir(), '.slaterc'), JSON.stringify(data))
@@ -157,7 +156,24 @@ async( function() {
 })()
 
 var checkCookieStatus = function() {
-    return false;
+    if(config.cookie == "none") {
+        return false;
+    } else {
+        var res = await(axios.get('lp/1.10/users/whoami', {
+            headers: {
+                cookie: config.cookie
+            }
+        })
+            .then(function(res) {
+                axios.defaults.headers.common['Cookie'] = config.cookie;
+				vorpal.log(chalk.green('Successfully Login'))
+                return true
+            })
+            .catch(function(err) {
+                return false
+            }))
+        return res
+    }
 };
 
 var initVorpalSlate = async(function(username, password) {
@@ -165,7 +181,8 @@ var initVorpalSlate = async(function(username, password) {
     if(config == null) {
         var data = {
             username: username,
-            password: password
+            password: password,
+            cookie: "none"
         }
 
         fs.writeFileSync(path.join(os.homedir(), '.slaterc'), JSON.stringify(data))
@@ -173,9 +190,7 @@ var initVorpalSlate = async(function(username, password) {
         config = data;
     }
 
-    if(checkCookieStatus()) {
-
-    } else {
+    if(!checkCookieStatus()) {
         await(grabCookie())
     }
 
