@@ -4,16 +4,13 @@ var await = require('asyncawait/await')
 var Horseman = require('node-horseman');
 var horseman = new Horseman();
 var axios = require('axios');
-var envs = require('envs');
 var chalk = require('chalk');
-var RxDB = require('rxdb');
 var fs = require('fs');
 var download = require('download');
 axios.defaults.baseURL = 'https://slate.sheridancollege.ca/d2l/api/';
 
 
 const vorpal = require('vorpal')();
-RxDB.plugin(require('pouchdb-adapter-node-websql'))
 
 const repl = require('vorpal-repl');
 var Table = require('cli-table');
@@ -180,7 +177,7 @@ async( function() {
                     dropbox.map(function(i) {
 
                         var dueDate = new Date(i.DueDate);
-                        var closeDate = new Date(i.Availability.EndDate);
+						var closeDate = (i.Availability != null) ? closeDate = new Date(i.Availability.EndDate) : 'None';
                         table.push(
                             [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
                         );

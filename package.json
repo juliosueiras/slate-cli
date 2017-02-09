@@ -1,16 +1,19 @@
 {
   "name": "slate-cli",
   "version": "1.0.0",
-  "bin":{
-      "slate":"./bin/slate"
+  "bin": {
+    "slate": "./bin/slate"
+  },
+  "engines": {
+	  "node": ">=4.0"
   },
   "main": "bin/slate",
   "repository": {
-      "type": "git",
-      "url": "https://github.com/juliosueiras/slate-cli"
+    "type": "git",
+    "url": "https://github.com/juliosueiras/slate-cli"
   },
   "bugs": {
-      "url": "https://github.com/juliosueiras/slate-cli/issues"
+    "url": "https://github.com/juliosueiras/slate-cli/issues"
   },
   "author": "Julio Tain Sueiras <juliosueiras@gmail.com>",
   "license": "MIT",
@@ -23,13 +26,8 @@
     "chalk": "^1.1.3",
     "cli-table": "^0.3.1",
     "download": "^5.0.3",
-    "envs": "^0.1.6",
     "node-horseman": "^3.2.0",
-    "phantomjs": "^2.1.7",
-    "pouchdb-adapter-memory": "^6.1.2",
-    "pouchdb-adapter-node-websql": "^6.1.2",
-    "rxdb": "^2.0.3",
-    "unirest": "^0.5.1",
+    "phantomjs-prebuilt": "^2.1.14",
     "vorpal": "^1.11.4",
     "vorpal-repl": "^1.1.8"
   }
