@@ -6,6 +6,10 @@ var axios = require('axios');
 var envs = require('envs');
 var chalk = require('chalk');
 var RxDB = require('rxdb');
+var fs = require('fs');
+var download = require('download');
+axios.defaults.baseURL = 'https://slate.sheridancollege.ca/d2l/api/';
+
 
 RxDB.plugin(require('pouchdb-adapter-node-websql'))
 var logger = require('cli-logger');
@@ -18,36 +22,49 @@ var globalCookie = null;
 var globalCourseListing = null;
 
 var getClassList = async(function(courseId) {
-    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/classlist/'))
+    var res = await(axios.get('/le/1.10/' + courseId + '/classlist/'))
     return res.data;
 })
 
 var getContentToc = async(function(courseId) {
-    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/content/toc'))
+    var res = await(axios.get('/le/1.10/' + courseId + '/content/toc'))
     log.info('my object: %o', res.data.Modules)
 })
 
 var getCourseGradeDetail = async(function(courseId, gradeId) {
-    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/grades/' + gradeId + '/values/myGradeValue').catch(function(err) {
+    var res = await(axios.get('/le/1.10/' + courseId + '/grades/' + gradeId + '/values/myGradeValue').catch(function(err) {
         return { data: { "DisplayedGrade": "None" }}
     }))
     return res.data;
 })
 
 var getCourseGrade = async(function(courseId) {
-    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/grades/'))
+    var res = await(axios.get('/le/1.10/' + courseId + '/grades/'))
     return res.data;
 })
 
+var downloadDropboxFiles = async(function(courseId, dropboxId) {
+    var res = await(axios.get('/le/1.10/' + courseId + '/dropbox/folders/' + dropboxId))
+
+    res.data.Attachments.forEach(function(i) {
+        await(download('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/dropbox/folders/' + dropboxId + '/attachments/' + i.FileId , {
+            headers: {
+                cookie: axios.defaults.headers.common['Cookie']
+            }
+        }).pipe(fs.createWriteStream(i.FileName)));
+    })
+})
+
+
 var getCourseDropbox = async(function(courseId) {
-    var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/le/1.10/' + courseId + '/dropbox/folders/'))
+    var res = await(axios.get('/le/1.10/' + courseId + '/dropbox/folders/'))
     return res.data;
 })
 
 
 var courseListing = async (function () {
     if(globalCourseListing == null) {
-        var res = await(axios.get('https://slate.sheridancollege.ca/d2l/api/lp/1.10/enrollments/myenrollments/'))
+        var res = await(axios.get('/lp/1.10/enrollments/myenrollments/'))
 
         globalCourseListing = res.data.Items.filter(function(i) { return i.OrgUnit.Type.Code == 'Course Offering' })
         return globalCourseListing;
@@ -144,26 +161,33 @@ async( function() {
                 })
                 vorpal.log(table.toString());
             } else if(args.options['dropbox']) {
-                course = await(findCourse(args.course));
-                dropbox = await(getCourseDropbox(course.OrgUnit.Id))
-                var table = new Table({
-                    head: ['ID', 'Name', 'Due Date', 'Dropbox Close Date'],
-                    chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
-                        , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
-                        , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
-                        , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
-                });
 
-                dropbox.map(function(i) {
+                if(args.options['download']) {
+                    course = await(findCourse(args.course));
+                    await(downloadDropboxFiles(course.OrgUnit.Id, args.options.download));
+                } else {
+                    course = await(findCourse(args.course));
+                    dropbox = await(getCourseDropbox(course.OrgUnit.Id))
 
-                    var dueDate = new Date(i.DueDate);
-                    var closeDate = new Date(i.Availability.EndDate);
-                    table.push(
-                        [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
-                    );
-                })
+                    var table = new Table({
+                        head: ['ID', 'Name', 'Due Date', 'Dropbox Close Date'],
+                        chars: { 'top': '-' , 'top-mid': '+' , 'top-left': '+' , 'top-right': '+'
+                            , 'bottom': '-' , 'bottom-mid': '+' , 'bottom-left': '+' , 'bottom-right': '+'
+                            , 'left': '|' , 'left-mid': '+' , 'mid': '-' , 'mid-mid': '+'
+                            , 'right': '|' , 'right-mid': '+' , 'middle': '|' }
+                    });
 
-                vorpal.log(table.toString());
+                    dropbox.map(function(i) {
+
+                        var dueDate = new Date(i.DueDate);
+                        var closeDate = new Date(i.Availability.EndDate);
+                        table.push(
+                            [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
+                        );
+                    })
+
+                    vorpal.log(table.toString());
+                }
 
             } else if(args.options['grades']) {
 
