@@ -176,7 +176,7 @@ async( function() {
 
                     dropbox.map(function(i) {
 
-                        var dueDate = new Date(i.DueDate);
+						var dueDate = (i.DueDate != null) ? closeDate = new Date(i.DueDate) : 'None';
 						var closeDate = (i.Availability != null) ? closeDate = new Date(i.Availability.EndDate) : 'None';
                         table.push(
                             [ i.Id , i.Name, dueDate.toLocaleString(), closeDate.toLocaleString() ]
