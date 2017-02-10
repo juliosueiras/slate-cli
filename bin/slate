@@ -118,7 +118,7 @@ var grabCookie = function () {
 
 async( function() { 
 
-    vorpal.command('login', 'Login (u: root p: vorpal)')
+    vorpal.command('login', 'login to slate')
         .action(async(function (args, cb) {
             var self = this;
 
